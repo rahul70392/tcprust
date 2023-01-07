@@ -5,17 +5,44 @@ fn main() -> io::Result<()>{
     let mut buf = [0u8;1504];
     loop{
         let nbytes = nic.recv(&mut buf[..])?;
-        let flags = u16::from_be_bytes([buf[0], buf[1]]);
-        let proto = u16::from_be_bytes([buf[2], buf[3]]);
-        if proto != 0x800 {
+        let _eth_flags = u16::from_be_bytes([buf[0], buf[1]]);
+        let eth_proto = u16::from_be_bytes([buf[2], buf[3]]);
+        if eth_proto != 0x800 {
             //no ipv4
             continue;
         }
-        eprintln!("read {} bytes (flags : {:x}, proto : {:x}): {:x?}", 
-        nbytes-4, 
-        flags, 
-        proto, 
-        &buf[..nbytes]);
+
+        match etherparse::Ipv4HeaderSlice::from_slice(&buf[4..nbytes]) {
+            Ok(p) => {
+                let src = p.source_addr();
+                let dst = p.destination_addr();
+                let proto = p.protocol();
+
+                if proto != 0x06 {
+                    //not tcp
+                    continue;
+                }
+
+                match etherparse::TcpHeaderSlice::from_slice(&buf[4 + p.slice().len()..]){
+                    Ok(p) => {
+                        eprintln!(
+                            "{} -> {} {}b of tcp to port {}",
+                            src,
+                            dst,
+                            p.slice().len(),
+                            p.destination_port()
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("ignoring weird tcp packet{:?}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("ignoring weird packet{:?}", e);
+            }
+        }
+
     }
-    Ok(())
+    // Ok(())
 }

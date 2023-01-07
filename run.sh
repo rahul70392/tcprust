@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 cargo b --release
 sudo setcap cap_net_admin=eip /home/astha/rust-projects/tcprust/target/release/tcprust
 /home/astha/rust-projects/tcprust/target/release/tcprust &
